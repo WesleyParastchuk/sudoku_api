@@ -1,0 +1,31 @@
+# Dependências
+/node_modules
+
+# Arquivos de log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.log
+
+# Diretório de saída do compilador
+/.dist
+
+# Chaves de ambiente
+.env
+.env.test
+
+# Arquivos de lock
+yarn.lock
+package-lock.json
+
+# IDE - VSCode
+.vscode
+
+# System Files
+.DS_Store
+Thumbs.db
