@@ -1,3 +1,9 @@
-type box = { row: number; col: number };
+type row = number;
+type column = number;
 
-type position = { row: number; col: number; box: box };
+type box = { row: row; col: column };
+type rowAndCol = { row: row; col: row };
+
+type position = rowAndCol & { box: box };
+
+type tableArray = number[][];

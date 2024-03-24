@@ -6,246 +6,182 @@ class Table {
 		(_, i) => i + 1
 	);
 	private table: Cell[][] = [];
-	private firstEmpty: position | null = {
-		row: 0,
-		col: 3,
-		box: { row: 0, col: 1 },
-	};
 
 	constructor() {
+		this.createFullTable();
+	}
+
+	//Inserção
+
+	private putRandom({ row, col }: position): void {
+		const cell = this.table[row][col];
+		const options = cell.options;
+
+		if (options) {
+			const optionsArray = Array.from(options);
+			const randomIndex = Math.floor(Math.random() * options.size);
+			cell.value = optionsArray[randomIndex];
+			cell.options = null;
+			this.actualizeOptions({ row, col, box: cell.box });
+		}
+	}
+
+	private getNextPositions(): position[] {
+		let minorSize: number = 9;
+		let nextPos: position[] = [];
+
+		for (let row = 0; row < 9; row++) {
+			for (let col = 0; col < 9; col++) {
+				const cell = this.table[row][col];
+				if (cell.isEmpty) {
+					const optionsSize = cell.options!.size;
+					if (optionsSize === 1 && minorSize === 1) {
+						nextPos.push({ row, col, box: cell.box });
+					} else if (optionsSize < minorSize) {
+						nextPos = [{ row, col, box: cell.box }];
+						minorSize = optionsSize;
+					}
+				}
+			}
+		}
+
+		return nextPos;
+	}
+
+	//Preenchimento
+
+	private createBaseTable(): void {
 		this.emptyFill();
-		this.diagonalFill();
+		this.mainDiagonalFill();
 		this.setInitialOptions();
-		this.setOptions();
-
-		while (!this.isComplete && this.firstEmpty) {
-			while (this.putAllWithOneOption()) {
-				console.table(this.values());
-				this.setOptions();
-			}
-			if (this.firstEmpty) this.putFirstRandom();
-		}
 	}
 
-	private putAllWithOneOption() {
-		let hasOneOption = false;
-		for (let row = 0; row < 9; row++) {
-			for (let col = 0; col < 9; col++) {
-				if (
-					this.table[row][col].type === "inProcess" &&
-					this.table[row][col].options &&
-					this.table[row][col].options!.length === 1
-				) {
-					this.table[row][col].value =
-						this.table[row][col].options![0];
-					this.table[row][col].options = null;
-					hasOneOption = true;
-					if (
-						this.firstEmpty &&
-						this.firstEmpty.row === row &&
-						this.firstEmpty.col === col
-					) {
-						this.nextEmpty();
-					}
-				}
-			}
-		}
-		return hasOneOption;
+	private emptyFill(): void {
+		this.table = Array.from({ length: 9 }, (_, row) =>
+			Array.from({ length: 9 }, (_, col) => new Cell(row, col))
+		);
 	}
 
-	private setInitialOptions() {
-		for (let row = 0; row < 9; row++) {
-			for (let col = 0; col < 9; col++) {
-				if (this.table[row][col].type === "inProcess") {
-					const numbers = new Set([
-						...this.rowValue(row),
-						...this.colValue(col),
-						...this.boxValue(this.table[row][col].box),
-					]);
-					numbers.delete(0);
-					this.table[row][col].options = new Set<number>();
-					for (let search = 0; search < 9; search++) {
-						if (!numbers.has(search + 1)) {
-							this.table[row][col].addOption(search + 1);
-						}
-					}
+	private mainDiagonalFill(): void {
+		for (let box = 0; box < 3; box++) {
+			const shuffledNumbers = [...Table.nineNums].sort(
+				() => Math.random() - 0.5
+			);
+			for (let row = 0; row < 3; row++) {
+				for (let col = 0; col < 3; col++) {
+					const tableRow = row + box * 3;
+					const tableCol = col + box * 3;
+					const numberIndexInArray = row * 3 + col;
+
+					this.table[tableRow][tableCol].value =
+						shuffledNumbers[numberIndexInArray];
 				}
 			}
 		}
 	}
 
-
-	private actualizeOptions(pos:position){
-		const {row, col, box} = pos;
-		const numbers = new Set([
-			...this.rowValue(row),
-			...this.colValue(col),
-			...this.boxValue(box),
-		]);
-		numbers.delete(0);
-		this.table[row][col].options = new Set<number>();
-		for (let search = 0; search < 9; search++) {
-			if (!numbers.has(search + 1)) {
-				this.table[row][col].addOption(search + 1);
+	private createFullTable(): void {
+		this.createBaseTable();
+		while (!this.isComplete) {
+			const nextPositions = this.getNextPositions();
+			if (nextPositions.length > 0) {
+				nextPositions.forEach((pos: position) => {
+					this.putRandom(pos);
+				});
 			}
 		}
-	
+		if (!this.isReady) this.createFullTable();
 	}
 
+	//Opções
 
-	private setOptions() {
+	private setInitialOptions(): void {
 		for (let row = 0; row < 9; row++) {
 			for (let col = 0; col < 9; col++) {
-				if (this.table[row][col].type === "inProcess") {
-					const numbers = new Set([
-						...this.rowValue(row),
-						...this.colValue(col),
-						...this.boxValue(this.table[row][col].box),
-					]);
-					numbers.delete(0);
-					this.table[row][col].options = new Set<number>();
-					for (let search = 0; search < 9; search++) {
-						if (!numbers.has(search + 1)) {
-							this.table[row][col].addOption(search + 1);
-						}
-					}
-				}
+				this.setOption({ row: row, col: col });
 			}
 		}
 	}
 
-	private putFirstRandom() {
-		if (
-			this.firstEmpty &&
-			this.table[this.firstEmpty.row][this.firstEmpty.col].options
-		) {
-			this.table[this.firstEmpty.row][this.firstEmpty.col].value =
-				this.table[this.firstEmpty.row][this.firstEmpty.col].options![
-					Math.floor(
-						Math.random() *
-							this.table[this.firstEmpty.row][this.firstEmpty.col]
-								.options?.length!
-					)
-				];
-			this.table[this.firstEmpty.row][this.firstEmpty.col].options = null;
-			this.nextEmpty();
+	private actualizeOptions(pos: position): void {
+		const cells = [
+			...this.getRow(pos.row),
+			...this.getCol(pos.col),
+			...this.getBox(pos.box),
+		];
+
+		for (let cell of cells) {
+			if (cell.pos !== pos) {
+				this.setOption(cell.pos);
+			}
 		}
 	}
 
-	private rowValue(row: number): number[] {
-		return this.table[row].map(cell => cell.value);
+	private setOption({ row, col }: rowAndCol): void {
+		const cell = this.table[row][col];
+
+		if (cell.isEmpty) {
+			const numsToExclude = new Set<number>([
+				...this.getRowValues(row),
+				...this.getColValues(col),
+				...this.getBoxValues(cell.box),
+			]);
+			numsToExclude.delete(0);
+
+			cell.options = cell.options || new Set<number>(Table.nineNums);
+
+			numsToExclude.forEach(num => cell.options!.delete(num));
+		}
 	}
 
-	private colValue(col: number): number[] {
-		return this.table.map(row => row[col].value);
+	//Validação
+
+	private get isReady(): boolean {
+		return !this.table.some(row =>
+			row.some(cell => cell.value === undefined)
+		);
 	}
 
-	public boxValue(box: box): number[] {
+	private get isComplete(): boolean {
+		return !this.table.some(row => row.some(cell => cell.isEmpty));
+	}
+
+	//Apresentação
+
+	public get values(): number[][] {
+		return this.table.map(row => row.map(cell => cell.value));
+	}
+
+	//Get's da tabela
+	private getRow(row: number): Cell[] {
+		return this.table[row];
+	}
+
+	private getRowValues(row: number): number[] {
+		return this.getRow(row).map(cell => cell.value);
+	}
+
+	private getCol(col: number): Cell[] {
+		return this.table.map(row => row[col]);
+	}
+
+	private getColValues(col: number): number[] {
+		return this.getCol(col).map(cell => cell.value);
+	}
+
+	private getBox(box: box): Cell[] {
 		return this.table
 			.map(row =>
-				row
-					.filter(
-						cell =>
-							cell.box.row === box.row && cell.box.col === box.col
-					)
-					.map(cell => cell.value)
+				row.filter(
+					cell => cell.box.row === box.row && cell.box.col === box.col
+				)
 			)
 			.flat();
 	}
 
-	private diagonalFill(): void {
-		for (let boxIndex = 0; boxIndex < 3; boxIndex++) {
-			const shuffledNumbers = [...Table.nineNums].sort(
-				() => Math.random() - 0.5
-			);
-			for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
-				for (let colIndex = 0; colIndex < 3; colIndex++) {
-					const tableRow = rowIndex + boxIndex * 3;
-					const tableCol = colIndex + boxIndex * 3;
-					const numberIndex = rowIndex * 3 + colIndex;
-
-					this.table[tableRow][tableCol].value =
-						shuffledNumbers[numberIndex];
-				}
-			}
-		}
-	}
-
-	private emptyFill(): void {
-		this.table = Array(9)
-			.fill(null)
-			.map((_, row) =>
-				Array(9)
-					.fill(null)
-					.map((_, col) => new Cell(row, col))
-			);
-	}
-
-	public get tableData(): Cell[][] {
-		return this.table;
-	}
-
-	public values(): any {
-		return this.table.map(row =>
-			row.map(cell => (cell.value ? cell.value : cell.options))
-		);
-	}
-
-	public get isComplete() {
-		return this.table.every(row => row.every(cell => cell.value !== 0));
-	}
-
-	private nextEmpty(): position | null {
-		if (this.firstEmpty === null) {
-			return this.firstEmpty;
-		}
-
-		const cellInProcess = this.table
-			.flatMap(row => row)
-			.find(
-				cell =>
-					cell.type === "inProcess" &&
-					cell.pos.row * 9 + cell.pos.col >
-						this.firstEmpty!.row * 9 + this.firstEmpty!.col
-			);
-
-		if (cellInProcess) {
-			this.firstEmpty = cellInProcess.pos;
-		} else {
-			this.firstEmpty = null;
-		}
-
-		return this.firstEmpty;
-	}
-
-	public nextEmpty2(): position | null {
-		let cellInProcess = null;
-
-		for (let row of this.table) {
-			cellInProcess = row.find(
-				cell =>
-					cell.type === "inProcess" &&
-					cell.pos.row * 9 + cell.pos.col >
-						this.firstEmpty!.row * 9 + this.firstEmpty!.col
-			);
-			if (cellInProcess) {
-				break;
-			}
-		}
-
-		if (cellInProcess) {
-			this.firstEmpty = cellInProcess.pos;
-		} else {
-			this.firstEmpty = null;
-		}
-
-		return this.firstEmpty;
+	private getBoxValues(box: box): number[] {
+		return this.getBox(box).map(cell => cell.value);
 	}
 }
-
-const table = new Table();
-
-console.table(table.values());
-console.table(table.tableData);
 
 export default Table;
